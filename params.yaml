@@ -1,0 +1,12 @@
+stocks:
+  - ticker: "5280.KL"
+    label: "KIPREIT"
+  - ticker: "1066.KL"
+    label: "RHBBANK"
+
+email:
+  subject: "Daily Stock Summary — {date}"
+
+settings:
+  max_news_per_stock: 3
+  timezone: "Asia/Kuala_Lumpur"
