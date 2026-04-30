@@ -73,21 +73,24 @@ def _price_context(tk, current_str: str, tz) -> str:
         if past.empty:
             return ""
 
+        def _fmt_line(pct, ref_price, label):
+            up = pct >= 0
+            arrow = "↑" if up else "↓"
+            color = "#2e7d32" if up else "#c62828"
+            return f'<span style="color:{color}">{arrow} {abs(pct):.1f}% vs {label} (MYR {ref_price:.3f})</span>'
+
         parts = []
         if len(past) >= 1:
             yest = past.iloc[-1]
-            pct = ((current - yest) / yest) * 100
-            parts.append(f"{'↑' if pct >= 0 else '↓'} {abs(pct):.1f}% vs yesterday (MYR {yest:.3f})")
+            parts.append(_fmt_line((current - yest) / yest * 100, yest, "yesterday"))
         if len(past) >= 5:
             wk_avg = past.tail(5).mean()
-            pct = ((current - wk_avg) / wk_avg) * 100
-            parts.append(f"{'↑' if pct >= 0 else '↓'} {abs(pct):.1f}% vs last week avg (MYR {wk_avg:.3f})")
+            parts.append(_fmt_line((current - wk_avg) / wk_avg * 100, wk_avg, "last week avg"))
         if len(past) >= 20:
             mo_avg = past.tail(20).mean()
-            pct = ((current - mo_avg) / mo_avg) * 100
-            parts.append(f"{'↑' if pct >= 0 else '↓'} {abs(pct):.1f}% vs last month avg (MYR {mo_avg:.3f})")
+            parts.append(_fmt_line((current - mo_avg) / mo_avg * 100, mo_avg, "last month avg"))
 
-        return f"At MYR {current_str}, the price is {' · '.join(parts)}." if parts else ""
+        return f"At MYR {current_str}:<br>" + "<br>".join(parts) if parts else ""
     except Exception:
         return ""
 
