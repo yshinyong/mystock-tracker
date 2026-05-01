@@ -3,6 +3,10 @@ stocks:
     label: "KIPREIT"
   - ticker: "1066.KL"
     label: "RHBBANK"
+  - ticker: "1295.KL"
+    label: "PBBANK"
+  - ticker: "1155.KL"
+    label: "MAYBANK"
 
 email:
   subject: "Daily Stock Summary — {date}"

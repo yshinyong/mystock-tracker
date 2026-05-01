@@ -65,7 +65,7 @@ def _price_context(tk, current_str: str, tz) -> str:
         return ""
     try:
         current = float(current_str)
-        hist = tk.history(period="35d")
+        hist = tk.history(period="70d")
         if hist.empty:
             return ""
         hist.index = hist.index.tz_convert(tz)
@@ -89,6 +89,9 @@ def _price_context(tk, current_str: str, tz) -> str:
         if len(past) >= 20:
             mo_avg = past.tail(20).mean()
             parts.append(_fmt_line((current - mo_avg) / mo_avg * 100, mo_avg, "last month avg"))
+        if len(past) >= 60:
+            mo3_avg = past.tail(60).mean()
+            parts.append(_fmt_line((current - mo3_avg) / mo3_avg * 100, mo3_avg, "last 3 months avg"))
 
         return f"At MYR {current_str}:<br>" + "<br>".join(parts) if parts else ""
     except Exception:
