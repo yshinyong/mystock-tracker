@@ -12,5 +12,5 @@ email:
   subject: "Daily Stock Summary — {date}"
 
 settings:
-  max_news_per_stock: 3
+  max_news_per_stock: 6
   timezone: "Asia/Kuala_Lumpur"

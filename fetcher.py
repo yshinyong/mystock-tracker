@@ -7,6 +7,11 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 _analyzer = SentimentIntensityAnalyzer()
 
+_EDGE_MARKETS_RSS = "https://www.theedgemarkets.com/rss"
+_STAR_BUSINESS_RSS = "https://www.thestar.com.my/rss/business/business-news"
+_MALAYSIAN_RESERVE_RSS = "https://themalaysianreserve.com/feed/"
+_NST_BUSINESS_RSS = "https://www.nst.com.my/business.rss"
+
 
 def score_sentiment(text: str) -> str:
     compound = _analyzer.polarity_scores(text)["compound"]
@@ -35,29 +40,126 @@ def _pct_diff(current, reference, label: str) -> str:
         return "N/A"
 
 
-def _fetch_google_news(label: str, max_news: int) -> list:
-    url = f"https://news.google.com/rss/search?q={quote(label + ' Bursa Malaysia')}&hl=en-MY&gl=MY&ceid=MY:en"
+def _make_news_item(title, link, source, date):
+    return {
+        "title": title,
+        "sentiment": score_sentiment(title),
+        "link": link,
+        "source": source,
+        "date": date,
+    }
+
+
+def _parse_rss_date(entry) -> str:
+    for field in ("published", "updated"):
+        raw = entry.get(field, "")
+        if raw:
+            try:
+                return parsedate_to_datetime(raw).strftime("%-d %b %Y")
+            except Exception:
+                pass
+    return "N/A"
+
+
+def _fetch_google_news(label: str, ticker: str, max_news: int) -> list:
+    code = ticker.split(".")[0]  # "5280" from "5280.KL"
+    queries = [
+        f"{label} Bursa Malaysia",
+        f"{code} {label} KLSE",
+    ]
+    seen_titles = set()
+    news = []
+    for query in queries:
+        url = f"https://news.google.com/rss/search?q={quote(query)}&hl=en-MY&gl=MY&ceid=MY:en"
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries:
+                title = entry.get("title", "")
+                if not title or title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                news.append(_make_news_item(
+                    title,
+                    entry.get("link", "#"),
+                    (entry.get("source") or {}).get("title", "Google News"),
+                    _parse_rss_date(entry),
+                ))
+        except Exception:
+            continue
+    return news
+
+
+def _fetch_yfinance_news(tk, max_news: int) -> list:
     try:
-        feed = feedparser.parse(url)
+        raw = getattr(tk, "news", None) or []
+        # yfinance >= 0.2.x may nest news under a key
+        if isinstance(raw, dict):
+            raw = list(raw.values())[0] if raw else []
         news = []
-        for entry in feed.entries[:max_news]:
-            title = entry.get("title", "")
+        for item in raw[:max_news * 3]:
+            if not isinstance(item, dict):
+                continue
+            title = item.get("title", "")
             if not title:
                 continue
+            pub_ts = item.get("providerPublishTime")
             try:
-                pub_date = parsedate_to_datetime(entry.get("published", "")).strftime("%-d %b %Y")
+                pub_date = datetime.fromtimestamp(pub_ts).strftime("%-d %b %Y") if pub_ts else "N/A"
             except Exception:
                 pub_date = "N/A"
-            news.append({
-                "title": title,
-                "sentiment": score_sentiment(title),
-                "link": entry.get("link", "#"),
-                "source": (entry.get("source") or {}).get("title", "Unknown"),
-                "date": pub_date,
-            })
+            news.append(_make_news_item(
+                title,
+                item.get("link", "#"),
+                item.get("publisher", "Yahoo Finance"),
+                pub_date,
+            ))
         return news
     except Exception:
         return []
+
+
+def _fetch_rss_filtered(url: str, source_name: str, label: str, max_news: int) -> list:
+    """Fetch a generic RSS feed and return entries mentioning the stock label."""
+    try:
+        feed = feedparser.parse(url)
+        label_lower = label.lower()
+        news = []
+        for entry in feed.entries:
+            title = entry.get("title", "")
+            summary = entry.get("summary", "")
+            if not title:
+                continue
+            if label_lower not in title.lower() and label_lower not in summary.lower():
+                continue
+            src = (entry.get("source") or {}).get("title", source_name)
+            news.append(_make_news_item(title, entry.get("link", "#"), src, _parse_rss_date(entry)))
+            if len(news) >= max_news:
+                break
+        return news
+    except Exception:
+        return []
+
+
+def _deduplicate(news: list) -> list:
+    seen = set()
+    result = []
+    for item in news:
+        key = " ".join(item["title"].lower().split())
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
+
+
+def _fetch_all_news(tk, label: str, ticker: str, max_news: int) -> list:
+    all_news = []
+    all_news.extend(_fetch_yfinance_news(tk, max_news))
+    all_news.extend(_fetch_google_news(label, ticker, max_news))
+    all_news.extend(_fetch_rss_filtered(_EDGE_MARKETS_RSS, "The Edge Markets", label, max_news))
+    all_news.extend(_fetch_rss_filtered(_STAR_BUSINESS_RSS, "The Star", label, max_news))
+    all_news.extend(_fetch_rss_filtered(_MALAYSIAN_RESERVE_RSS, "The Malaysian Reserve", label, max_news))
+    all_news.extend(_fetch_rss_filtered(_NST_BUSINESS_RSS, "New Straits Times", label, max_news))
+    return _deduplicate(all_news)[:max_news]
 
 
 def _price_context(tk, current_str: str, tz) -> str:
@@ -137,7 +239,7 @@ def fetch_stock_data(ticker: str, label: str, max_news: int, tz) -> dict:
         except Exception:
             pass
 
-        result["news"] = _fetch_google_news(label, max_news)
+        result["news"] = _fetch_all_news(tk, label, ticker, max_news)
 
     except Exception as e:
         print(f"Warning: failed to fetch data for {ticker}: {e}")
