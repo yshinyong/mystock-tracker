@@ -57,12 +57,21 @@ def main():
     date_str = now.strftime("%d %b %Y")
     timestamp_str = now.strftime("%H:%M")
     max_news = config["settings"]["max_news_per_stock"]
+    max_age_days = config["settings"].get("max_news_age_days", 60)
 
     print(f"Fetching data for {len(config['stocks'])} stock(s)...")
     stock_data_list = []
     for stock in config["stocks"]:
         print(f"  → {stock['label']} ({stock['ticker']})")
-        stock_data_list.append(fetch_stock_data(stock["ticker"], stock["label"], max_news, tz))
+        stock_data_list.append(fetch_stock_data(
+            ticker=stock["ticker"],
+            label=stock["label"],
+            aliases=stock.get("aliases", []),
+            broker_aliases=stock.get("broker_aliases", []),
+            max_news=max_news,
+            max_age_days=max_age_days,
+            tz=tz,
+        ))
 
     print("Building email...")
     html = build_html_email(stock_data_list, date_str, timestamp_str)
