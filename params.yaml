@@ -1,16 +1,24 @@
 stocks:
   - ticker: "5280.KL"
     label: "KIPREIT"
+    aliases: ["KIP REIT", "KIP-REIT"]
   - ticker: "1066.KL"
     label: "RHBBANK"
+    aliases: ["RHB Bank", "RHB"]
+    broker_aliases: ["RHB Research", "RHB Investment Bank", "RHB IB"]
   - ticker: "1295.KL"
     label: "PBBANK"
+    aliases: ["Public Bank"]
+    broker_aliases: ["Public Investment Bank", "Public IB", "PIVB"]
   - ticker: "1155.KL"
     label: "MAYBANK"
+    aliases: ["Maybank", "Malayan Banking"]
+    broker_aliases: ["Maybank IB", "Maybank Investment Bank", "Maybank Research"]
 
 email:
   subject: "Daily Stock Summary — {date}"
 
 settings:
   max_news_per_stock: 6
+  max_news_age_days: 60
   timezone: "Asia/Kuala_Lumpur"
