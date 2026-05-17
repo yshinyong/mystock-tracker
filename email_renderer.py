@@ -23,11 +23,33 @@ def _news_item(n: dict) -> str:
     </li>"""
 
 
+def _comment_item(c: dict) -> str:
+    likes_html = (
+        f'<span style="margin-left:8px;font-size:11px;color:#757575;">👍 {c["likes"]}</span>'
+        if c["likes"] > 0 else ""
+    )
+    return f"""
+    <li style="margin-bottom:14px;padding:10px 12px;background:#f9f9f9;border-left:3px solid #c5cae9;border-radius:4px;">
+      <div style="font-size:12px;font-weight:600;color:#1a237e;margin-bottom:4px;">
+        {c["username"]}{likes_html}
+      </div>
+      <div style="font-size:13px;color:#212121;line-height:1.5;">{c["message"]}</div>
+      <div style="margin-top:4px;font-size:11px;color:#9e9e9e;">{c["date"]}</div>
+    </li>"""
+
+
 def _stock_card(s: dict) -> str:
     news_html = "".join(_news_item(n) for n in s["news"]) if s["news"] \
         else "<li style='color:#757575;'>No news available.</li>"
     price_context_html = f'<p style="margin:0 0 10px;font-size:13px;color:#424242;">{s["price_context"]}</p>' \
         if s["price_context"] else ""
+
+    comments = s.get("klse_comments", [])
+    comments_html = "".join(_comment_item(c) for c in comments) if comments \
+        else "<li style='color:#757575;'>No community comments in the past 7 days.</li>"
+    klse_code = s["ticker"].split(".")[0]
+    klse_url = f"https://www.klsescreener.com/v2/comments/all/stock/{klse_code}"
+
     return f"""
     <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;margin-bottom:24px;">
       <h2 style="margin:0 0 16px;font-size:18px;color:#1a237e;">
@@ -74,14 +96,80 @@ def _stock_card(s: dict) -> str:
 
       <h3 style="margin:0 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">News</h3>
       <ul style="margin:0;padding-left:0;list-style:none;">{news_html}</ul>
+
+      <h3 style="margin:16px 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">Community Comments (Past 7 Days)</h3>
+      <ul style="margin:0;padding-left:0;list-style:none;">{comments_html}</ul>
+      <p style="margin:4px 0 0;font-size:11px;color:#9e9e9e;">
+        Source: <a href="{klse_url}" style="color:#9e9e9e;">KLSE Screener</a>
+      </p>
+    </div>"""
+
+
+def _executive_summary(stock_data_list: list) -> str:
+    all_green = []
+    all_red = []
+    for s in stock_data_list:
+        comps = s.get("price_comparisons", [])
+        if not comps:
+            continue
+        pcts = [c["pct"] for c in comps]
+        if all(p > 0 for p in pcts):
+            all_green.append(s)
+        elif all(p < 0 for p in pcts):
+            all_red.append(s)
+
+    if not all_green and not all_red:
+        return ""
+
+    def _comp_line(s):
+        parts = [
+            f'{c["label"]}: {"+" if c["pct"] >= 0 else ""}{c["pct"]:.1f}%'
+            for c in s["price_comparisons"]
+        ]
+        return f'<strong>{s["label"]}</strong> &mdash; ' + ", ".join(parts)
+
+    sections = []
+    if all_green:
+        rows = "".join(
+            f'<li style="margin-bottom:6px;font-size:13px;color:#212121;">{_comp_line(s)}</li>'
+            for s in all_green
+        )
+        sections.append(f"""
+        <div style="margin-bottom:12px;">
+          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:6px;
+                      text-transform:uppercase;letter-spacing:.5px;">All Positive</div>
+          <ul style="margin:0;padding-left:0;list-style:none;">{rows}</ul>
+        </div>""")
+
+    if all_red:
+        rows = "".join(
+            f'<li style="margin-bottom:6px;font-size:13px;color:#212121;">{_comp_line(s)}</li>'
+            for s in all_red
+        )
+        sections.append(f"""
+        <div style="margin-bottom:0;">
+          <div style="font-weight:700;font-size:13px;color:#c62828;margin-bottom:6px;
+                      text-transform:uppercase;letter-spacing:.5px;">All Negative</div>
+          <ul style="margin:0;padding-left:0;list-style:none;">{rows}</ul>
+        </div>""")
+
+    body = "".join(sections)
+    return f"""
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
+                padding:20px 24px;margin-top:16px;margin-bottom:8px;">
+      <h2 style="margin:0 0 14px;font-size:15px;color:#1a237e;text-transform:uppercase;
+                 letter-spacing:.5px;">Executive Summary</h2>
+      {body}
     </div>"""
 
 
 def build_html_email(stock_data_list: list, date_str: str, timestamp_str: str) -> str:
     cards = "".join(_stock_card(s) for s in stock_data_list)
+    summary = _executive_summary(stock_data_list)
     return (
         _TEMPLATE
         .replace("{date_str}", date_str)
+        .replace("{executive_summary}", summary)
         .replace("{cards}", cards)
         .replace("{timestamp_str}", timestamp_str)
     )

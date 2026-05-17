@@ -1,5 +1,7 @@
 import feedparser
+import requests
 import yfinance as yf
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote
@@ -283,42 +285,117 @@ def _fetch_all_news(tk, label: str, ticker: str, aliases: list, broker_aliases: 
     return result
 
 
-def _price_context(tk, current_str: str, tz) -> str:
+def _compute_price_comparisons(tk, current_str: str, tz) -> list:
+    """Return list of {label, pct, ref_price} for each available time window."""
     if current_str == "N/A":
-        return ""
+        return []
     try:
         current = float(current_str)
         hist = tk.history(period="70d")
         if hist.empty:
-            return ""
+            return []
         hist.index = hist.index.tz_convert(tz)
         past = hist[hist.index.date < datetime.now(tz).date()]["Close"]
         if past.empty:
-            return ""
+            return []
 
-        def _fmt_line(pct, ref_price, label):
-            up = pct >= 0
-            arrow = "↑" if up else "↓"
-            color = "#2e7d32" if up else "#c62828"
-            return f'<span style="color:{color}">{arrow} {abs(pct):.1f}% vs {label} (MYR {ref_price:.3f})</span>'
-
-        parts = []
+        comparisons = []
         if len(past) >= 1:
-            yest = past.iloc[-1]
-            parts.append(_fmt_line((current - yest) / yest * 100, yest, "yesterday"))
+            ref = past.iloc[-1]
+            comparisons.append({"label": "yesterday", "pct": (current - ref) / ref * 100, "ref_price": ref})
         if len(past) >= 5:
-            wk_avg = past.tail(5).mean()
-            parts.append(_fmt_line((current - wk_avg) / wk_avg * 100, wk_avg, "last week avg"))
+            ref = past.tail(5).mean()
+            comparisons.append({"label": "last week avg", "pct": (current - ref) / ref * 100, "ref_price": ref})
         if len(past) >= 20:
-            mo_avg = past.tail(20).mean()
-            parts.append(_fmt_line((current - mo_avg) / mo_avg * 100, mo_avg, "last month avg"))
+            ref = past.tail(20).mean()
+            comparisons.append({"label": "last month avg", "pct": (current - ref) / ref * 100, "ref_price": ref})
         if len(past) >= 60:
-            mo3_avg = past.tail(60).mean()
-            parts.append(_fmt_line((current - mo3_avg) / mo3_avg * 100, mo3_avg, "last 3 months avg"))
-
-        return f"At MYR {current_str}:<br>" + "<br>".join(parts) if parts else ""
+            ref = past.tail(60).mean()
+            comparisons.append({"label": "last 3 months avg", "pct": (current - ref) / ref * 100, "ref_price": ref})
+        return comparisons
     except Exception:
+        return []
+
+
+def _price_context_html(current_str: str, comparisons: list) -> str:
+    if not comparisons:
         return ""
+
+    def _fmt_line(pct, ref_price, label):
+        up = pct >= 0
+        arrow = "↑" if up else "↓"
+        color = "#2e7d32" if up else "#c62828"
+        return f'<span style="color:{color}">{arrow} {abs(pct):.1f}% vs {label} (MYR {ref_price:.3f})</span>'
+
+    parts = [_fmt_line(c["pct"], c["ref_price"], c["label"]) for c in comparisons]
+    return f"At MYR {current_str}:<br>" + "<br>".join(parts)
+
+
+_KLSE_SCREENER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+
+def _fetch_klse_comments(klse_code: str, days: int = 7) -> list:
+    url = f"https://www.klsescreener.com/v2/comments/all/stock/{klse_code}"
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    try:
+        r = requests.get(url, headers=_KLSE_SCREENER_HEADERS, timeout=15)
+        r.raise_for_status()
+    except Exception:
+        return []
+
+    soup = BeautifulSoup(r.text, "html.parser")
+    top_comments = soup.find_all(
+        "div",
+        class_=lambda c: c and "cardmy" in c and "comment" in c and "ml-1" in c,
+    )
+
+    results = []
+    for block in top_comments:
+        dt_tag = block.find("a", attrs={"data-datetime": True})
+        if not dt_tag:
+            continue
+        raw_dt = dt_tag["data-datetime"]
+        try:
+            # Format: "2026-05-07 21:01:36 +0800"
+            dt = datetime.strptime(raw_dt, "%Y-%m-%d %H:%M:%S %z")
+        except ValueError:
+            continue
+        if dt < cutoff:
+            continue
+
+        username_tag = block.find("strong", class_="text-primary")
+        username = username_tag.get_text(strip=True) if username_tag else "Unknown"
+
+        msg_tag = block.find("div", class_="message-container")
+        message = msg_tag.get_text(strip=True) if msg_tag else ""
+        if not message:
+            continue
+
+        likes_tag = block.find("span", attrs={"data-id": True})
+        likes = 0
+        if likes_tag:
+            txt = likes_tag.get_text(strip=True)
+            try:
+                likes = int(txt.split()[0])
+            except (ValueError, IndexError):
+                likes = 0
+
+        results.append({
+            "username": username,
+            "message": message,
+            "date": dt.strftime("%-d %b %Y %H:%M"),
+            "likes": likes,
+            "_dt": dt,
+        })
+
+    results.sort(key=lambda c: c["_dt"], reverse=True)
+    for c in results:
+        c.pop("_dt")
+    return results
 
 
 def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: list,
@@ -326,10 +403,12 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
     result = {
         "label": label, "ticker": ticker,
         "current_price": "N/A", "price_context": "",
+        "price_comparisons": [],
         "week52_high": "N/A", "week52_low": "N/A",
         "price_vs_high": "N/A", "price_vs_low": "N/A",
         "analyst_low": "N/A", "analyst_mean": "N/A", "analyst_high": "N/A",
         "news": [],
+        "klse_comments": [],
     }
     try:
         tk = yf.Ticker(ticker)
@@ -348,7 +427,9 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
             pass
 
         try:
-            result["price_context"] = _price_context(tk, result["current_price"], tz)
+            comparisons = _compute_price_comparisons(tk, result["current_price"], tz)
+            result["price_comparisons"] = comparisons
+            result["price_context"] = _price_context_html(result["current_price"], comparisons)
         except Exception:
             pass
 
@@ -364,6 +445,9 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
         result["news"] = _fetch_all_news(
             tk, label, ticker, aliases, broker_aliases, max_news, max_age_days,
         )
+
+        klse_code = ticker.split(".")[0]
+        result["klse_comments"] = _fetch_klse_comments(klse_code, days=7)
 
     except Exception as e:
         print(f"Warning: failed to fetch data for {ticker}: {e}")
