@@ -14,6 +14,9 @@ stocks:
     label: "MAYBANK"
     aliases: ["Maybank", "Malayan Banking"]
     broker_aliases: ["Maybank IB", "Maybank Investment Bank", "Maybank Research"]
+  - ticker: "5099.KL"
+    label: "CAPITALA"
+    aliases: ["Capital A", "Capital A Berhad", "AirAsia Group"]
 
 email:
   subject: "Daily Stock Summary — {date}"

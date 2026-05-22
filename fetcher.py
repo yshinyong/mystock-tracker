@@ -260,8 +260,23 @@ def _deduplicate(news: list) -> list:
     return result
 
 
+_BROKER_REPORT_KEYWORDS = (
+    "target price", "price target", " tp ", "tp:", "tp of", "tp to",
+    "buy", "sell", "hold", "overweight", "underweight", "outperform",
+    "underperform", "neutral", "upgrade", "downgrade", "initiate",
+    "reiterate", "maintain",
+)
+
+_EXCLUDED_SOURCES = {"ad hoc news"}
+
+
+def _is_broker_report(title: str) -> bool:
+    t = title.lower()
+    return any(kw in t for kw in _BROKER_REPORT_KEYWORDS)
+
+
 def _fetch_all_news(tk, label: str, ticker: str, aliases: list, broker_aliases: list,
-                    max_news: int, max_age_days: int) -> list:
+                    max_news: int, max_age_days: int) -> tuple:
     all_news = []
     all_news.extend(_fetch_yfinance_news(tk))
     all_news.extend(_fetch_google_news(label, ticker, aliases))
@@ -274,15 +289,26 @@ def _fetch_all_news(tk, label: str, ticker: str, aliases: list, broker_aliases: 
         n for n in all_news
         if _is_about_stock(n["title"], label, aliases, broker_aliases)
         and _is_recent(n["_dt"], max_age_days)
+        and n.get("source", "").lower() not in _EXCLUDED_SOURCES
     ]
     filtered = _deduplicate(filtered)
     filtered.sort(key=lambda n: n["_dt"], reverse=True)
 
-    result = []
+    analyst_sources = []
+    for n in filtered:
+        if _is_broker_report(n["title"]):
+            item = dict(n)
+            item.pop("_dt", None)
+            analyst_sources.append(item)
+        if len(analyst_sources) >= 5:
+            break
+
+    news = []
     for n in filtered[:max_news]:
         n.pop("_dt", None)
-        result.append(n)
-    return result
+        news.append(n)
+
+    return news, analyst_sources
 
 
 def _compute_price_comparisons(tk, current_str: str, tz) -> list:
@@ -407,6 +433,7 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
         "week52_high": "N/A", "week52_low": "N/A",
         "price_vs_high": "N/A", "price_vs_low": "N/A",
         "analyst_low": "N/A", "analyst_mean": "N/A", "analyst_high": "N/A",
+        "analyst_sources": [],
         "news": [],
         "klse_comments": [],
     }
@@ -442,7 +469,7 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
         except Exception:
             pass
 
-        result["news"] = _fetch_all_news(
+        result["news"], result["analyst_sources"] = _fetch_all_news(
             tk, label, ticker, aliases, broker_aliases, max_news, max_age_days,
         )
 

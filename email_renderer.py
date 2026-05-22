@@ -38,11 +38,30 @@ def _comment_item(c: dict) -> str:
     </li>"""
 
 
+def _analyst_source_item(n: dict) -> str:
+    return (
+        f'<li style="margin-bottom:5px;font-size:11px;">'
+        f'<a href="{n["link"]}" style="color:#1565c0;text-decoration:none;">{n["title"]}</a>'
+        f' <span style="color:#9e9e9e;">— {n["source"]} · {n["date"]}</span>'
+        f'</li>'
+    )
+
+
 def _stock_card(s: dict) -> str:
     news_html = "".join(_news_item(n) for n in s["news"]) if s["news"] \
         else "<li style='color:#757575;'>No news available.</li>"
     price_context_html = f'<p style="margin:0 0 10px;font-size:13px;color:#424242;">{s["price_context"]}</p>' \
         if s["price_context"] else ""
+
+    analyst_sources = s.get("analyst_sources", [])
+    if analyst_sources:
+        items = "".join(_analyst_source_item(n) for n in analyst_sources)
+        analyst_sources_html = (
+            f'<p style="margin:4px 0 4px;font-size:11px;color:#9e9e9e;">Related analyst reports:</p>'
+            f'<ul style="margin:0 0 16px;padding-left:0;list-style:none;">{items}</ul>'
+        )
+    else:
+        analyst_sources_html = '<p style="margin:4px 0 16px;font-size:11px;color:#9e9e9e;">No recent analyst reports found.</p>'
 
     comments = s.get("klse_comments", [])
     comments_html = "".join(_comment_item(c) for c in comments) if comments \
@@ -92,7 +111,8 @@ def _stock_card(s: dict) -> str:
           <td style="padding:7px 14px;font-size:13px;color:#212121;">MYR {s["analyst_high"]}</td>
         </tr>
       </table>
-      <p style="margin:4px 0 16px;font-size:11px;color:#9e9e9e;">Source: Yahoo Finance (Analyst Consensus)</p>
+      <p style="margin:4px 0 8px;font-size:11px;color:#9e9e9e;">Consensus via Yahoo Finance</p>
+      {analyst_sources_html}
 
       <h3 style="margin:0 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">News</h3>
       <ul style="margin:0;padding-left:0;list-style:none;">{news_html}</ul>
