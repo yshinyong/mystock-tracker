@@ -1,6 +1,12 @@
 import base64
+import io
 from datetime import datetime
 from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 _SENTIMENT_COLOR = {
     "Positive": "#2e7d32",
@@ -189,67 +195,35 @@ def _klci_chart_img(ytd_history: list) -> str:
     if len(ytd_history) < 2:
         return ""
 
-    W, H = 540, 160
-    PL, PR, PT, PB = 62, 12, 14, 28
-    CW, CH = W - PL - PR, H - PT - PB
-
-    dates_str = [d for d, _ in ytd_history]
+    dates = [datetime.strptime(d, "%Y-%m-%d") for d, _ in ytd_history]
     values = [v for _, v in ytd_history]
-    n = len(values)
-    min_v, max_v = min(values), max(values)
-    v_range = max_v - min_v or 1
-    bottom_y = PT + CH
-
-    def px(i):
-        return PL + (i / (n - 1)) * CW
-
-    def py(v):
-        return PT + (1 - (v - min_v) / v_range) * CH
-
-    line_pts = " ".join(f"{px(i):.1f},{py(v):.1f}" for i, v in enumerate(values))
-    area_pts = f"{px(0):.1f},{bottom_y:.0f} {line_pts} {px(n - 1):.1f},{bottom_y:.0f}"
-
     color = "#2e7d32" if values[-1] >= values[0] else "#c62828"
 
-    # Month labels
-    x_labels, seen = [], set()
-    for i, d in enumerate(dates_str):
-        ym = d[:7]
-        if ym not in seen:
-            seen.add(ym)
-            x_labels.append((px(i), datetime.strptime(d, "%Y-%m-%d").strftime("%b")))
+    fig, ax = plt.subplots(figsize=(5.6, 1.7), dpi=120)
+    ax.plot(dates, values, color=color, linewidth=1.5, zorder=3)
+    ax.fill_between(dates, values, alpha=0.08, color=color, zorder=2)
 
-    x_label_svg = "".join(
-        f'<text x="{x:.0f}" y="{H - 6}" text-anchor="middle" font-size="10" fill="#9e9e9e">{m}</text>'
-        for x, m in x_labels
-    )
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+    ax.tick_params(axis="x", labelsize=8, colors="#9e9e9e", length=0)
+    ax.tick_params(axis="y", labelsize=8, colors="#9e9e9e", length=0)
+    ax.yaxis.set_major_locator(plt.MaxNLocator(3, integer=True))
 
-    y_ticks = [min_v, (min_v + max_v) / 2, max_v]
-    y_tick_svg = "".join(
-        f'<text x="{PL - 4}" y="{py(v) + 4:.0f}" text-anchor="end" font-size="10" fill="#9e9e9e">{v:.0f}</text>'
-        for v in y_ticks
-    )
-    gridlines = "".join(
-        f'<line x1="{PL}" y1="{py(v):.0f}" x2="{W - PR}" y2="{py(v):.0f}" stroke="#f0f0f0" stroke-width="1"/>'
-        for v in y_ticks
-    )
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.grid(axis="y", color="#f0f0f0", linewidth=0.8, zorder=1)
+    ax.set_facecolor("white")
+    fig.patch.set_facecolor("white")
+    fig.tight_layout(pad=0.4)
 
-    svg = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">'
-        f'<defs><linearGradient id="kg" x1="0" y1="0" x2="0" y2="1">'
-        f'<stop offset="0%" stop-color="{color}" stop-opacity="0.15"/>'
-        f'<stop offset="100%" stop-color="{color}" stop-opacity="0"/>'
-        f'</linearGradient></defs>'
-        f'<rect width="{W}" height="{H}" fill="white"/>'
-        f'{gridlines}'
-        f'<polygon points="{area_pts}" fill="url(#kg)"/>'
-        f'<polyline points="{line_pts}" fill="none" stroke="{color}" stroke-width="1.8"'
-        f' stroke-linejoin="round" stroke-linecap="round"/>'
-        f'{y_tick_svg}{x_label_svg}'
-        f'</svg>'
-    )
-    b64 = base64.b64encode(svg.encode()).decode()
-    return f'<img src="data:image/svg+xml;base64,{b64}" width="{W}" style="max-width:100%;display:block;" alt="KLCI YTD"/>'
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight",
+                facecolor="white", edgecolor="none")
+    plt.close(fig)
+    buf.seek(0)
+
+    b64 = base64.b64encode(buf.read()).decode()
+    return f'<img src="data:image/png;base64,{b64}" style="max-width:100%;display:block;" alt="KLCI YTD Chart"/>'
 
 
 def _klci_section(klci_data: dict) -> str:
