@@ -3,6 +3,7 @@ import smtplib
 import yaml
 import pytz
 from datetime import datetime
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
@@ -33,17 +34,24 @@ def load_config() -> dict:
     return config
 
 
-def send_email(html_body: str, config: dict, date_str: str):
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = config["email"]["subject"].format(date=date_str)
-    msg["From"] = config["sender"]
-    msg["To"] = config["recipient"]
-    msg.attach(MIMEText(html_body, "html"))
+def send_email(html_body: str, chart_png: bytes, config: dict, date_str: str):
+    # multipart/related allows the HTML to reference the chart via cid:
+    related = MIMEMultipart("related")
+    related["Subject"] = config["email"]["subject"].format(date=date_str)
+    related["From"] = config["sender"]
+    related["To"] = config["recipient"]
+    related.attach(MIMEText(html_body, "html"))
+
+    if chart_png:
+        img_part = MIMEImage(chart_png, "png")
+        img_part.add_header("Content-ID", "<klci_chart>")
+        img_part.add_header("Content-Disposition", "inline", filename="klci_chart.png")
+        related.attach(img_part)
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(config["sender"], config["password"])
-            server.sendmail(config["sender"], config["recipient"], msg.as_string())
+            server.sendmail(config["sender"], config["recipient"], related.as_string())
     except smtplib.SMTPAuthenticationError:
         raise RuntimeError("Gmail authentication failed. Check GMAIL_APP_PASSWORD in your .env file.")
     except Exception as e:
@@ -77,10 +85,10 @@ def main():
     klci = fetch_klci_data(tz)
 
     print("Building email...")
-    html = build_html_email(stock_data_list, date_str, timestamp_str, klci_data=klci)
+    html, chart_png = build_html_email(stock_data_list, date_str, timestamp_str, klci_data=klci)
 
     print("Sending email...")
-    send_email(html, config, date_str)
+    send_email(html, chart_png, config, date_str)
     print(f"Done. Email sent to {config['recipient']} at {timestamp_str} MYT.")
 
 

@@ -191,9 +191,10 @@ def _executive_summary(stock_data_list: list) -> str:
     </div>"""
 
 
-def _klci_chart_img(ytd_history: list) -> str:
+def _klci_chart_png(ytd_history: list) -> bytes:
+    """Render the YTD chart and return raw PNG bytes."""
     if len(ytd_history) < 2:
-        return ""
+        return b""
 
     dates = [datetime.strptime(d, "%Y-%m-%d") for d, _ in ytd_history]
     values = [v for _, v in ytd_history]
@@ -221,9 +222,7 @@ def _klci_chart_img(ytd_history: list) -> str:
                 facecolor="white", edgecolor="none")
     plt.close(fig)
     buf.seek(0)
-
-    b64 = base64.b64encode(buf.read()).decode()
-    return f'<img src="data:image/png;base64,{b64}" style="max-width:100%;display:block;" alt="KLCI YTD Chart"/>'
+    return buf.read()
 
 
 def _klci_section(klci_data: dict) -> str:
@@ -281,7 +280,7 @@ def _klci_section(klci_data: dict) -> str:
     else:
         news_section = ""
 
-    chart_html = _klci_chart_img(klci_data["ytd_history"])
+    chart_tag = '<img src="cid:klci_chart" style="max-width:100%;display:block;" alt="KLCI YTD Chart"/>'
 
     return f"""
     <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;margin-bottom:24px;">
@@ -296,16 +295,18 @@ def _klci_section(klci_data: dict) -> str:
       </table>
       {news_section}
       <h3 style="margin:16px 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">YTD Performance</h3>
-      {chart_html}
+      {chart_tag}
     </div>"""
 
 
 def build_html_email(stock_data_list: list, date_str: str, timestamp_str: str,
-                     klci_data: dict = None) -> str:
+                     klci_data: dict = None) -> tuple:
+    """Return (html_str, klci_chart_png_bytes)."""
     cards = "".join(_stock_card(s) for s in stock_data_list)
     summary = _executive_summary(stock_data_list)
     klci_html = _klci_section(klci_data) if klci_data else ""
-    return (
+    chart_png = _klci_chart_png(klci_data["ytd_history"]) if klci_data else b""
+    html = (
         _TEMPLATE
         .replace("{date_str}", date_str)
         .replace("{executive_summary}", summary)
@@ -313,3 +314,4 @@ def build_html_email(stock_data_list: list, date_str: str, timestamp_str: str,
         .replace("{klci_section}", klci_html)
         .replace("{timestamp_str}", timestamp_str)
     )
+    return html, chart_png
