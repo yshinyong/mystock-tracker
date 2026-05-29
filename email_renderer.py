@@ -200,9 +200,13 @@ def _klci_chart_png(ytd_history: list) -> bytes:
     values = [v for _, v in ytd_history]
     color = "#2e7d32" if values[-1] >= values[0] else "#c62828"
 
+    min_v, max_v = min(values), max(values)
+    pad = (max_v - min_v) * 0.1 or 1
+
     fig, ax = plt.subplots(figsize=(5.6, 1.7), dpi=120)
     ax.plot(dates, values, color=color, linewidth=1.5, zorder=3)
-    ax.fill_between(dates, values, alpha=0.08, color=color, zorder=2)
+    ax.fill_between(dates, values, min_v, alpha=0.08, color=color, zorder=2)
+    ax.set_ylim(min_v - pad, max_v + pad)
 
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
