@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
-from fetcher import fetch_stock_data
+from fetcher import fetch_stock_data, fetch_klci_data
 from email_renderer import build_html_email
 
 
@@ -73,8 +73,11 @@ def main():
             tz=tz,
         ))
 
+    print("Fetching KLCI data...")
+    klci = fetch_klci_data(tz)
+
     print("Building email...")
-    html = build_html_email(stock_data_list, date_str, timestamp_str)
+    html = build_html_email(stock_data_list, date_str, timestamp_str, klci_data=klci)
 
     print("Sending email...")
     send_email(html, config, date_str)

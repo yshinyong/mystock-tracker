@@ -17,6 +17,9 @@ stocks:
   - ticker: "5099.KL"
     label: "CAPITALA"
     aliases: ["Capital A", "Capital A Berhad", "AirAsia Group"]
+  - ticker: "6033.KL"
+    label: "PETGAS"
+    aliases: ["Petronas Gas", "Petronas Gas Berhad"]
 
 email:
   subject: "Daily Stock Summary — {date}"
