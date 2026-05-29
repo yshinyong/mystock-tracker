@@ -482,8 +482,45 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
     return result
 
 
+def _fetch_klci_news(max_age_days: int = 7) -> list:
+    queries = [
+        "KLCI Bursa Malaysia index",
+        '"Bursa Malaysia" market index',
+        '"FTSE Bursa Malaysia KLCI"',
+    ]
+    seen, news = set(), []
+    for query in queries:
+        url = f"https://news.google.com/rss/search?q={quote(query)}&hl=en-MY&gl=MY&ceid=MY:en"
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries:
+                title = entry.get("title", "")
+                key = " ".join(title.lower().split())
+                if not title or key in seen:
+                    continue
+                dt = _parse_rss_datetime(entry)
+                if not _is_recent(dt, max_age_days):
+                    continue
+                seen.add(key)
+                news.append(_make_news_item(
+                    title,
+                    entry.get("link", "#"),
+                    (entry.get("source") or {}).get("title", "Google News"),
+                    dt,
+                ))
+        except Exception:
+            continue
+
+    news.sort(key=lambda n: n["_dt"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    result = []
+    for n in news[:3]:
+        n.pop("_dt", None)
+        result.append(n)
+    return result
+
+
 def fetch_klci_data(tz) -> dict:
-    result = {"current": "N/A", "date": "N/A", "comparisons": [], "ytd_history": []}
+    result = {"current": "N/A", "date": "N/A", "comparisons": [], "ytd_history": [], "news": []}
     try:
         tk = yf.Ticker("^KLSE")
         now = datetime.now(tz)
@@ -533,6 +570,7 @@ def fetch_klci_data(tz) -> dict:
             comparisons.append({"label": "last 3 months avg", "pct": (current - ref) / ref * 100, "ref": ref})
 
         result["comparisons"] = comparisons
+        result["news"] = _fetch_klci_news()
     except Exception as e:
         print(f"Warning: failed to fetch KLCI data: {e}")
     return result

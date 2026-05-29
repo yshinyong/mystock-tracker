@@ -231,10 +231,10 @@ def _klci_section(klci_data: dict) -> str:
         return ""
 
     comp_rows = ""
-    for c in klci_data["comparisons"]:
+    for i, c in enumerate(klci_data["comparisons"]):
         up = c["pct"] >= 0
         arrow, color, sign = ("↑", "#2e7d32", "+") if up else ("↓", "#c62828", "")
-        bg = "" if comp_rows else ' style="background:#f5f5f5;"'
+        bg = ' style="background:#f5f5f5;"' if i % 2 == 0 else ""
         comp_rows += (
             f'<tr{bg}>'
             f'<td style="padding:6px 14px;font-size:13px;color:#616161;">vs {c["label"]}</td>'
@@ -243,6 +243,43 @@ def _klci_section(klci_data: dict) -> str:
             f' <span style="color:#9e9e9e;font-size:11px;">(MYR {c["ref"]:.2f})</span>'
             f'</td></tr>'
         )
+
+    # Build news section with market direction context
+    news_items = klci_data.get("news", [])
+    if news_items and klci_data["comparisons"]:
+        yest = klci_data["comparisons"][0]
+        up = yest["pct"] >= 0
+        direction_color = "#2e7d32" if up else "#c62828"
+        direction_word = "rose" if up else "fell"
+        direction_arrow = "↑" if up else "↓"
+        sign = "+" if up else ""
+        context_line = (
+            f'<p style="margin:0 0 10px;font-size:13px;color:#424242;">'
+            f'The KLCI <span style="color:{direction_color};font-weight:600;">'
+            f'{direction_arrow} {direction_word} {sign}{yest["pct"]:.2f}%</span> yesterday. '
+            f'Key developments driving the move:</p>'
+        )
+        news_html = ""
+        for n in news_items:
+            sentiment_color = _SENTIMENT_COLOR.get(n["sentiment"], "#757575")
+            news_html += (
+                f'<li style="margin-bottom:12px;">'
+                f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
+                f'background:{sentiment_color};color:#fff;font-size:11px;font-weight:600;'
+                f'margin-right:8px;">{n["sentiment"]}</span>'
+                f'<a href="{n["link"]}" style="color:#1565c0;text-decoration:none;">{n["title"]}</a>'
+                f'<div style="margin-top:3px;font-size:11px;color:#9e9e9e;">'
+                f'{n["source"]} &nbsp;·&nbsp; {n["date"]}</div>'
+                f'</li>'
+            )
+        news_section = (
+            f'<h3 style="margin:16px 0 8px;font-size:13px;color:#424242;'
+            f'text-transform:uppercase;letter-spacing:.5px;">Key News</h3>'
+            f'{context_line}'
+            f'<ul style="margin:0;padding-left:0;list-style:none;">{news_html}</ul>'
+        )
+    else:
+        news_section = ""
 
     chart_html = _klci_chart_img(klci_data["ytd_history"])
 
@@ -257,7 +294,8 @@ def _klci_section(klci_data: dict) -> str:
       <table style="border-collapse:collapse;width:100%;max-width:420px;margin-bottom:16px;">
         {comp_rows}
       </table>
-      <h3 style="margin:0 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">YTD Performance</h3>
+      {news_section}
+      <h3 style="margin:16px 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">YTD Performance</h3>
       {chart_html}
     </div>"""
 
