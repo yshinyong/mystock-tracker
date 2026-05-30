@@ -46,12 +46,53 @@ def _comment_item(c: dict) -> str:
     </li>"""
 
 
-def _analyst_source_item(n: dict) -> str:
+_CALL_COLOR = {"BUY": "#2e7d32", "SELL": "#c62828", "HOLD": "#e65100"}
+
+
+def _analyst_targets_html(s: dict) -> str:
+    targets = s.get("analyst_targets", [])
+    klse_code = s["ticker"].split(".")[0]
+    i3_url = f"https://klse.i3investor.com/web/stock/analysis-price-target/{klse_code}"
+
+    if not targets:
+        return (
+            f'<p style="margin:0 0 16px;font-size:12px;color:#9e9e9e;">'
+            f'No data. <a href="{i3_url}" style="color:#9e9e9e;">View on i3investor</a></p>'
+        )
+
+    header = (
+        '<tr style="border-bottom:1px solid #e0e0e0;">'
+        '<th style="padding:5px 10px;font-size:11px;color:#9e9e9e;font-weight:600;text-align:left;">Date</th>'
+        '<th style="padding:5px 10px;font-size:11px;color:#9e9e9e;font-weight:600;text-align:left;">Target</th>'
+        '<th style="padding:5px 10px;font-size:11px;color:#9e9e9e;font-weight:600;text-align:left;">Upside</th>'
+        '<th style="padding:5px 10px;font-size:11px;color:#9e9e9e;font-weight:600;text-align:left;">Call</th>'
+        '<th style="padding:5px 10px;font-size:11px;color:#9e9e9e;font-weight:600;text-align:left;">Firm</th>'
+        '</tr>'
+    )
+    rows = ""
+    for i, t in enumerate(targets):
+        call = t["call"].upper()
+        call_color = _CALL_COLOR.get(call, "#757575")
+        upside_color = "#2e7d32" if t["upside"].startswith("+") else "#c62828"
+        bg = ' style="background:#f5f5f5;"' if i % 2 == 0 else ""
+        firm_html = (
+            f'<a href="{t["url"]}" style="color:#1565c0;text-decoration:none;">{t["firm"]}</a>'
+            if t["url"] else t["firm"]
+        )
+        rows += (
+            f'<tr{bg}>'
+            f'<td style="padding:5px 10px;font-size:12px;color:#616161;">{t["date"]}</td>'
+            f'<td style="padding:5px 10px;font-size:12px;font-weight:600;color:#212121;">MYR {t["target"]}</td>'
+            f'<td style="padding:5px 10px;font-size:12px;color:{upside_color};">{t["upside"]}</td>'
+            f'<td style="padding:5px 10px;font-size:12px;font-weight:600;color:{call_color};">{call}</td>'
+            f'<td style="padding:5px 10px;font-size:12px;color:#616161;">{firm_html}</td>'
+            f'</tr>'
+        )
     return (
-        f'<li style="margin-bottom:5px;font-size:11px;">'
-        f'<a href="{n["link"]}" style="color:#1565c0;text-decoration:none;">{n["title"]}</a>'
-        f' <span style="color:#9e9e9e;">— {n["source"]} · {n["date"]}</span>'
-        f'</li>'
+        f'<table style="border-collapse:collapse;width:100%;max-width:540px;margin-bottom:4px;">'
+        f'{header}{rows}</table>'
+        f'<p style="margin:4px 0 16px;font-size:11px;color:#9e9e9e;">'
+        f'Source: <a href="{i3_url}" style="color:#9e9e9e;">i3investor</a></p>'
     )
 
 
@@ -60,16 +101,6 @@ def _stock_card(s: dict) -> str:
         else "<li style='color:#757575;'>No news available.</li>"
     price_context_html = f'<p style="margin:0 0 10px;font-size:13px;color:#424242;">{s["price_context"]}</p>' \
         if s["price_context"] else ""
-
-    analyst_sources = s.get("analyst_sources", [])
-    if analyst_sources:
-        items = "".join(_analyst_source_item(n) for n in analyst_sources)
-        analyst_sources_html = (
-            f'<p style="margin:4px 0 4px;font-size:11px;color:#9e9e9e;">Related analyst reports:</p>'
-            f'<ul style="margin:0 0 16px;padding-left:0;list-style:none;">{items}</ul>'
-        )
-    else:
-        analyst_sources_html = '<p style="margin:4px 0 16px;font-size:11px;color:#9e9e9e;">No recent analyst reports found.</p>'
 
     comments = s.get("klse_comments", [])
     comments_html = "".join(_comment_item(c) for c in comments) if comments \
@@ -105,22 +136,7 @@ def _stock_card(s: dict) -> str:
       </table>
 
       <h3 style="margin:0 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">Analyst Target Prices</h3>
-      <table style="border-collapse:collapse;width:100%;max-width:420px;">
-        <tr style="background:#f5f5f5;">
-          <td style="padding:7px 14px;font-size:13px;color:#616161;">Low</td>
-          <td style="padding:7px 14px;font-size:13px;color:#212121;">MYR {s["analyst_low"]}</td>
-        </tr>
-        <tr>
-          <td style="padding:7px 14px;font-size:13px;color:#616161;">Mean</td>
-          <td style="padding:7px 14px;font-size:13px;color:#212121;">MYR {s["analyst_mean"]}</td>
-        </tr>
-        <tr style="background:#f5f5f5;">
-          <td style="padding:7px 14px;font-size:13px;color:#616161;">High</td>
-          <td style="padding:7px 14px;font-size:13px;color:#212121;">MYR {s["analyst_high"]}</td>
-        </tr>
-      </table>
-      <p style="margin:4px 0 8px;font-size:11px;color:#9e9e9e;">Consensus via Yahoo Finance</p>
-      {analyst_sources_html}
+      {_analyst_targets_html(s)}
 
       <h3 style="margin:0 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">News</h3>
       <ul style="margin:0;padding-left:0;list-style:none;">{news_html}</ul>

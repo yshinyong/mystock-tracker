@@ -1,4 +1,6 @@
 import feedparser
+import json
+import re
 import requests
 import yfinance as yf
 from bs4 import BeautifulSoup
@@ -357,6 +359,45 @@ def _price_context_html(current_str: str, comparisons: list) -> str:
     return f"At MYR {current_str}:<br>" + "<br>".join(parts)
 
 
+_I3_BASE = "https://klse.i3investor.com"
+_I3_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+
+def _fetch_i3investor_targets(klse_code: str, limit: int = 5) -> list:
+    url = f"{_I3_BASE}/web/stock/analysis-price-target/{klse_code}"
+    try:
+        r = requests.get(url, headers=_I3_HEADERS, timeout=15)
+        r.raise_for_status()
+    except Exception:
+        return []
+
+    match = re.search(r"var dtdata\s*=\s*(\[.*?\]);", r.text, re.DOTALL)
+    if not match:
+        return []
+    try:
+        rows = json.loads(match.group(1))
+    except Exception:
+        return []
+
+    results = []
+    for row in rows[:limit]:
+        research_path = row[7] if len(row) > 7 else ""
+        results.append({
+            "date":       row[0],
+            "open_price": row[1],
+            "target":     row[2],
+            "upside":     row[3],
+            "call":       row[4],
+            "firm":       row[5],
+            "url":        (_I3_BASE + research_path) if research_path else "",
+        })
+    return results
+
+
 _KLSE_SCREENER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -432,7 +473,7 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
         "price_comparisons": [],
         "week52_high": "N/A", "week52_low": "N/A",
         "price_vs_high": "N/A", "price_vs_low": "N/A",
-        "analyst_low": "N/A", "analyst_mean": "N/A", "analyst_high": "N/A",
+        "analyst_targets": [],
         "analyst_sources": [],
         "news": [],
         "klse_comments": [],
@@ -460,20 +501,12 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
         except Exception:
             pass
 
-        try:
-            apt = tk.analyst_price_targets
-            if apt is not None:
-                result["analyst_low"] = _fmt_price(apt.get("low"))
-                result["analyst_mean"] = _fmt_price(apt.get("mean"))
-                result["analyst_high"] = _fmt_price(apt.get("high"))
-        except Exception:
-            pass
-
         result["news"], result["analyst_sources"] = _fetch_all_news(
             tk, label, ticker, aliases, broker_aliases, max_news, max_age_days,
         )
 
         klse_code = ticker.split(".")[0]
+        result["analyst_targets"] = _fetch_i3investor_targets(klse_code)
         result["klse_comments"] = _fetch_klse_comments(klse_code, days=7)
 
     except Exception as e:
