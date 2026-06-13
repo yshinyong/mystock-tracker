@@ -1,7 +1,7 @@
 # MyStock Tracker
 
 Sends a daily HTML email summarising Bursa Malaysia stock prices, analyst targets,
-latest news, community comments, and a KLCI market overview — automatically at 7pm MYT via launchd.
+latest news, community comments, and a KLCI market overview — automatically at 5pm MYT via launchd.
 
 ---
 
@@ -13,7 +13,7 @@ latest news, community comments, and a KLCI market overview — automatically at
 ### Per stock
 - Current price with % change vs yesterday, last week avg, last month avg, and last 3 months avg
 - Price vs 52-week high and low
-- Analyst target prices (low / mean / high) from Yahoo Finance, with links to related analyst reports
+- 5 latest analyst target prices (date, target, upside/downside, call, firm) sourced from i3investor, each linking to the research report
 - Up to 6 recent news headlines with sentiment (Positive / Neutral / Negative), source, and date
 - Community comments from KLSE Screener for the past 7 days
 
@@ -34,6 +34,7 @@ latest news, community comments, and a KLCI market overview — automatically at
 | 1155.KL | MAYBANK |
 | 5099.KL | CAPITALA |
 | 6033.KL | PETGAS |
+| 5176.KL | SUNREIT |
 
 ---
 
@@ -93,7 +94,7 @@ Check your inbox. If no email arrives, see Troubleshooting below.
 
 ---
 
-## Scheduling (runs daily at 7pm MYT via launchd)
+## Scheduling (runs daily at 5pm MYT via launchd)
 
 A launchd plist is used instead of cron so the job runs even if the Mac was asleep at the scheduled time.
 
@@ -158,8 +159,7 @@ mystock-tracker/
 |---|---|
 | Stock price & 52-week range | Yahoo Finance (`yfinance`) — may be delayed 15–20 min |
 | Price history (yesterday / week / month / 3-month avg) | Yahoo Finance (`yfinance`) |
-| Analyst target prices | Yahoo Finance analyst consensus |
-| Analyst report links | Google News RSS |
+| Analyst target prices | i3investor (5 latest, with research report links) |
 | News & sentiment | Google News RSS + The Edge Markets, The Star, Malaysian Reserve, NST RSS feeds |
 | Sentiment scoring | VADER (rule-based, optimised for short headlines) |
 | Community comments | KLSE Screener (past 7 days) |
