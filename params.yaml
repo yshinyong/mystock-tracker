@@ -20,6 +20,9 @@ stocks:
   - ticker: "6033.KL"
     label: "PETGAS"
     aliases: ["Petronas Gas", "Petronas Gas Berhad"]
+  - ticker: "5176.KL"
+    label: "SUNREIT"
+    aliases: ["Sunway REIT", "Sunway Real Estate Investment Trust"]
 
 email:
   subject: "Daily Stock Summary — {date}"
