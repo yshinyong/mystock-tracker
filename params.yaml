@@ -1,4 +1,7 @@
 stocks:
+  - ticker: "7052.KL"
+    label: "PADINI"
+    aliases: ["Padini Holdings", "Padini Holdings Berhad"]
   - ticker: "5280.KL"
     label: "KIPREIT"
     aliases: ["KIP REIT", "KIP-REIT"]
