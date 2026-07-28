@@ -94,24 +94,24 @@ Check your inbox. If no email arrives, see Troubleshooting below.
 
 ---
 
-## Scheduling (runs daily at 5pm MYT via launchd)
+## Scheduling (runs daily at 5:30pm MYT via launchd)
 
-A launchd plist is used instead of cron so the job runs even if the Mac was asleep at the scheduled time.
+A launchd plist is used instead of cron so the job runs even if the Mac was asleep at the scheduled time — if asleep at 5:30pm, launchd runs the missed job as soon as the Mac next wakes.
 
-The plist is at `~/Library/LaunchAgents/com.shin.mystock-tracker.plist`. To load or reload it:
+The plist is at `~/Library/LaunchAgents/com.shin.stocktracker.plist` and runs `run_stock_summary.sh` (which activates the venv and logs to `logs/run.log`). To load or reload it:
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.shin.mystock-tracker.plist
-launchctl load ~/Library/LaunchAgents/com.shin.mystock-tracker.plist
+launchctl unload ~/Library/LaunchAgents/com.shin.stocktracker.plist
+launchctl load ~/Library/LaunchAgents/com.shin.stocktracker.plist
 ```
 
 To verify it is loaded:
 
 ```bash
-launchctl list | grep mystock-tracker
+launchctl list | grep stocktracker
 ```
 
-Logs go to `/tmp/mystock.log` — check there if something goes wrong.
+Logs go to `logs/run.log` (script output) and `logs/launchd.log` / `logs/launchd.err` (launchd-level output) — check there if something goes wrong.
 
 ---
 
@@ -139,16 +139,26 @@ Look up the correct ticker at [finance.yahoo.com](https://finance.yahoo.com).
 
 ```
 mystock-tracker/
-├── params.yaml           # Stock list and settings — edit to add/remove stocks
-├── .env                  # Gmail credentials — never commit this
-├── .env.example          # Template for .env
+├── params.yaml              # Stock list and settings — edit to add/remove stocks
+├── .env                     # Gmail credentials — never commit this
+├── .env.example             # Template for .env
 ├── .gitignore
-├── stock_summary.py      # Entry point — orchestration and email sending
-├── fetcher.py            # Data fetching — yfinance, Google News, KLSE Screener, KLCI
-├── email_renderer.py     # HTML email and chart assembly
-├── email_template.html   # Outer email layout (header, footer)
-├── requirements.txt      # Python dependencies
-└── README.md             # This file
+├── stock_summary.py         # Entry point — orchestration and email sending
+├── fetchers/                # Data fetching, split by concern
+│   ├── stock.py             #   Per-stock orchestration (fetch_stock_data)
+│   ├── klci.py               #   KLCI index orchestration (fetch_klci_data)
+│   ├── news.py               #   Google News/RSS fetching, dedup, stock-relevance filtering
+│   ├── price.py              #   Price comparison math (vs yesterday/week/month/3-month)
+│   ├── i3investor.py          #   Analyst target price scraping
+│   ├── klse_screener.py       #   KLSE Screener community comments scraping
+│   ├── sentiment.py           #   VADER sentiment scoring
+│   └── formatting.py          #   Shared price/date/news-item formatting helpers
+├── email_renderer.py        # HTML email and chart assembly
+├── email_template.html      # Outer email layout (header, footer)
+├── run_stock_summary.sh     # launchd wrapper — activates venv, appends to logs/run.log
+├── prompts/                 # Curated prompts used for this project, with source attribution
+├── requirements.txt         # Python dependencies
+└── README.md                # This file
 ```
 
 ---

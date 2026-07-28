@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
-from fetcher import fetch_stock_data, fetch_klci_data
+from fetchers import fetch_stock_data, fetch_klci_data
 from email_renderer import build_html_email
 
 
