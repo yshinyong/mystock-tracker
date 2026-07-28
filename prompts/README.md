@@ -20,4 +20,4 @@ date_added: YYYY-MM-DD
 
 | File | Title | Source |
 |---|---|---|
-| [analysis_report.md](analysis_report.md) | Equity research analysis report | [Reddit r/PromptEngineering](https://www.reddit.com/r/PromptEngineering/comments/1oqa30m/my_goto_prompt_for_analyzing_stocks_share_yours/) |
+| [equity_research_analysis_report.md](equity_research_analysis_report.md) | Equity research analysis report | [Reddit r/PromptEngineering](https://www.reddit.com/r/PromptEngineering/comments/1oqa30m/my_goto_prompt_for_analyzing_stocks_share_yours/) |
