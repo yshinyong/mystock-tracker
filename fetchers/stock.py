@@ -1,7 +1,7 @@
 import yfinance as yf
 
 from .formatting import _fmt_price, _pct_diff
-from .i3investor import _fetch_i3investor_targets
+from .i3investor import _fetch_i3investor_announcements, _fetch_i3investor_targets
 from .klse_screener import _fetch_klse_comments
 from .news import _fetch_all_news
 from .price import _compute_price_comparisons, _price_context_html
@@ -19,6 +19,7 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
         "analyst_sources": [],
         "news": [],
         "klse_comments": [],
+        "announcements": [],
     }
     try:
         tk = yf.Ticker(ticker)
@@ -50,6 +51,7 @@ def fetch_stock_data(ticker: str, label: str, aliases: list, broker_aliases: lis
         klse_code = ticker.split(".")[0]
         result["analyst_targets"] = _fetch_i3investor_targets(klse_code)
         result["klse_comments"] = _fetch_klse_comments(klse_code, days=7)
+        result["announcements"] = _fetch_i3investor_announcements(klse_code, days=7)
 
     except Exception as e:
         print(f"Warning: failed to fetch data for {ticker}: {e}")

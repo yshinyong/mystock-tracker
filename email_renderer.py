@@ -96,6 +96,14 @@ def _analyst_targets_html(s: dict) -> str:
     )
 
 
+def _announcement_item(a: dict) -> str:
+    return f"""
+    <li style="margin-bottom:10px;">
+      <a href="{a["url"]}" style="color:#1565c0;text-decoration:none;">{a["title"]}</a>
+      <div style="margin-top:3px;font-size:11px;color:#9e9e9e;">{a["date"]}</div>
+    </li>"""
+
+
 def _stock_card(s: dict) -> str:
     news_html = "".join(_news_item(n) for n in s["news"]) if s["news"] \
         else "<li style='color:#757575;'>No news available.</li>"
@@ -107,6 +115,11 @@ def _stock_card(s: dict) -> str:
         else "<li style='color:#757575;'>No community comments in the past 7 days.</li>"
     klse_code = s["ticker"].split(".")[0]
     klse_url = f"https://www.klsescreener.com/v2/comments/all/stock/{klse_code}"
+
+    announcements = s.get("announcements", [])
+    announcements_html = "".join(_announcement_item(a) for a in announcements) if announcements \
+        else "<li style='color:#757575;'>No announcements in the past 7 days.</li>"
+    i3_announce_url = f"https://klse.i3investor.com/web/stock/announcement/{klse_code}"
 
     return f"""
     <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;margin-bottom:24px;">
@@ -138,7 +151,13 @@ def _stock_card(s: dict) -> str:
       <h3 style="margin:0 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">Analyst Target Prices</h3>
       {_analyst_targets_html(s)}
 
-      <h3 style="margin:0 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">News</h3>
+      <h3 style="margin:16px 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">Company Announcements (Past 7 Days)</h3>
+      <ul style="margin:0;padding-left:0;list-style:none;">{announcements_html}</ul>
+      <p style="margin:4px 0 0;font-size:11px;color:#9e9e9e;">
+        Source: <a href="{i3_announce_url}" style="color:#9e9e9e;">i3investor</a>
+      </p>
+
+      <h3 style="margin:16px 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">News</h3>
       <ul style="margin:0;padding-left:0;list-style:none;">{news_html}</ul>
 
       <h3 style="margin:16px 0 8px;font-size:13px;color:#424242;text-transform:uppercase;letter-spacing:.5px;">Community Comments (Past 7 Days)</h3>

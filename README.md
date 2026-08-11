@@ -14,6 +14,7 @@ latest news, community comments, and a KLCI market overview — automatically at
 - Current price with % change vs yesterday, last week avg, last month avg, and last 3 months avg
 - Price vs 52-week high and low
 - 5 latest analyst target prices (date, target, upside/downside, call, firm) sourced from i3investor, each linking to the research report
+- Company announcements from the past 7 days, sourced from i3investor, each linking to the announcement
 - Up to 6 recent news headlines with sentiment (Positive / Neutral / Negative), source, and date
 - Community comments from KLSE Screener for the past 7 days
 
@@ -28,6 +29,7 @@ latest news, community comments, and a KLCI market overview — automatically at
 
 | Ticker | Label |
 |---|---|
+| 7052.KL | PADINI |
 | 5280.KL | KIPREIT |
 | 1066.KL | RHBBANK |
 | 1295.KL | PBBANK |
@@ -149,7 +151,7 @@ mystock-tracker/
 │   ├── klci.py               #   KLCI index orchestration (fetch_klci_data)
 │   ├── news.py               #   Google News/RSS fetching, dedup, stock-relevance filtering
 │   ├── price.py              #   Price comparison math (vs yesterday/week/month/3-month)
-│   ├── i3investor.py          #   Analyst target price scraping
+│   ├── i3investor.py          #   Analyst target price & company announcement scraping
 │   ├── klse_screener.py       #   KLSE Screener community comments scraping
 │   ├── sentiment.py           #   VADER sentiment scoring
 │   └── formatting.py          #   Shared price/date/news-item formatting helpers
@@ -170,6 +172,7 @@ mystock-tracker/
 | Stock price & 52-week range | Yahoo Finance (`yfinance`) — may be delayed 15–20 min |
 | Price history (yesterday / week / month / 3-month avg) | Yahoo Finance (`yfinance`) |
 | Analyst target prices | i3investor (5 latest, with research report links) |
+| Company announcements | i3investor (past 7 days, with announcement links) |
 | News & sentiment | Google News RSS + The Edge Markets, The Star, Malaysian Reserve, NST RSS feeds |
 | Sentiment scoring | VADER (rule-based, optimised for short headlines) |
 | Community comments | KLSE Screener (past 7 days) |
