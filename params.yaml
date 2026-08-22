@@ -17,6 +17,10 @@ stocks:
     label: "MAYBANK"
     aliases: ["Maybank", "Malayan Banking"]
     broker_aliases: ["Maybank IB", "Maybank Investment Bank", "Maybank Research"]
+  - ticker: "2488.KL"
+    label: "ABMB"
+    aliases: ["Alliance Bank", "Alliance Bank Malaysia", "Alliance Bank Malaysia Berhad"]
+    broker_aliases: ["Alliance Research", "Alliance Bank Research"]
   - ticker: "5099.KL"
     label: "CAPITALA"
     aliases: ["Capital A", "Capital A Berhad", "AirAsia Group"]

@@ -34,6 +34,7 @@ latest news, community comments, and a KLCI market overview — automatically at
 | 1066.KL | RHBBANK |
 | 1295.KL | PBBANK |
 | 1155.KL | MAYBANK |
+| 2488.KL | ABMB |
 | 5099.KL | CAPITALA |
 | 6033.KL | PETGAS |
 | 5176.KL | SUNREIT |
